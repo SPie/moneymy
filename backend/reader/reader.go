@@ -11,7 +11,7 @@ import (
 )
 
 type Reader interface {
-	GetAll() ([]expenses.Expense, error)
+	GetAll() ([]*expenses.Expense, error)
 	GetAllRaw() ([][]string, error)
 }
 
@@ -23,36 +23,36 @@ func NewCsvReader(fileName string) Reader {
 	return csvReader{fileName: fileName}
 }
 
-func (r csvReader) GetAll() ([]expenses.Expense, error) {
+func (r csvReader) GetAll() ([]*expenses.Expense, error) {
 	file, err := os.Open(r.fileName)
 	if err != nil {
-		return []expenses.Expense{}, err
+		return []*expenses.Expense{}, err
 	}
 	defer file.Close()
 
 	csv := csv.NewReader(file)
 
-	allExpenses := []expenses.Expense{}
+	allExpenses := []*expenses.Expense{}
 	for {
 		record, err := csv.Read()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			return []expenses.Expense{}, err
+			return []*expenses.Expense{}, err
 		}
 
 		amount, err := strconv.ParseFloat(record[2], 64)
 		if err != nil {
-			return []expenses.Expense{}, err
+			return []*expenses.Expense{}, err
 		}
 
 		date, err := time.Parse("02/01/2006", record[0])
 		if err != nil {
-			return []expenses.Expense{}, err
+			return []*expenses.Expense{}, err
 		}
 
-		allExpenses = append(allExpenses, expenses.Expense{
+		allExpenses = append(allExpenses, &expenses.Expense{
 			Date:     date,
 			Amount:   amount,
 			Currency: record[3],
