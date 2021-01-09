@@ -46,6 +46,9 @@ func (r csvReader) GetAll() ([]*expenses.Expense, error) {
 		if err != nil {
 			return []*expenses.Expense{}, err
 		}
+		if amount >= 0 {
+			continue
+		}
 
 		date, err := time.Parse("02/01/2006", record[0])
 		if err != nil {
@@ -54,8 +57,7 @@ func (r csvReader) GetAll() ([]*expenses.Expense, error) {
 
 		allExpenses = append(allExpenses, &expenses.Expense{
 			Date:     date,
-			Amount:   amount,
-			Currency: record[3],
+			Amount:   amount * -1,
 			Category: record[1],
 		})
 	}

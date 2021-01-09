@@ -47,27 +47,45 @@ func (r csvRepository) GetYears() ([]*expenses.Expense, error) {
 		return []*expenses.Expense{}, err
 	}
 
-	comulatedMap := map[int]map[string]*expenses.Expense{}
+	categories, err := r.GetCategories()
+	if err != nil {
+		return []*expenses.Expense{}, err
+	}
+
+	firstYear := 0
 	for _, entry := range entries {
-		year := entry.Date.Year()
-		if _, exists := comulatedMap[year]; !exists {
-			comulatedMap[year] = map[string]*expenses.Expense{}
+		if entry.Date.Year() < firstYear || firstYear == 0 {
+			firstYear = entry.Date.Year()
 		}
-		if _, exists := comulatedMap[year][entry.Category]; !exists {
-			date, err := time.Parse("2006-01-02", fmt.Sprintf("%d-01-01", year))
+	}
+
+	periods := []int{}
+	comulatedMap := map[int]map[string]*expenses.Expense{}
+	for i := firstYear; i <= time.Now().Year(); i++ {
+		periods = append(periods, i)
+		comulatedMap[i] = map[string]*expenses.Expense{}
+
+		for _, category := range categories {
+			date, err := time.Parse("2006-01-02", fmt.Sprintf("%d-01-01", i))
 			if err != nil {
 				return []*expenses.Expense{}, err
 			}
 
-			comulatedMap[year][entry.Category] = &expenses.Expense{Date: date, Category: entry.Category, Amount: 0.00}
-		}
-
-		if entry.Amount < 0 {
-			comulatedMap[year][entry.Category].Add(*entry)
+			comulatedMap[i][category] = &expenses.Expense{
+				Date: date,
+				Category: category,
+				Amount: 0.00,
+			}
 		}
 	}
 
-	return createComulatedSlice(comulatedMap), nil
+	for _, entry := range entries {
+		if expense, exists := comulatedMap[entry.Date.Year()][entry.Category]; exists {
+			expense.Add(*entry)
+		}
+	}
+
+	return createComulatedSlice(comulatedMap, periods, categories), nil
 }
 
 func (r csvRepository) GetMonths(year int) ([]*expenses.Expense, error) {
@@ -76,31 +94,42 @@ func (r csvRepository) GetMonths(year int) ([]*expenses.Expense, error) {
 		return []*expenses.Expense{}, err
 	}
 
+	categories, err := r.GetCategories()
+	if err != nil {
+		return []*expenses.Expense{}, err
+	}
+
+	periods := []int{}
 	comulatedMap := map[int]map[string]*expenses.Expense{}
+	for i:= 1; i <= 12; i++ {
+		periods = append(periods, i)
+		comulatedMap[i] = map[string]*expenses.Expense{}
+
+		for _, category := range categories {
+			date, err := time.Parse("2006-01-02", fmt.Sprintf("%d-%02d-01", year, i))
+			if err != nil {
+				return []*expenses.Expense{}, err
+			}
+			comulatedMap[i][category] = &expenses.Expense{
+				Date: date,
+				Category: category,
+				Amount: 0.00,
+			}
+		}
+	}
+
 	for _, entry := range entries {
 		if entry.Date.Year() != year {
 			continue
 		}
 
 		month := int(entry.Date.Month())
-		if _, exists := comulatedMap[month]; !exists {
-			comulatedMap[month] = map[string]*expenses.Expense{}
-		}
-		if _, exists := comulatedMap[month][entry.Category]; !exists {
-			date, err := time.Parse("2006-01-02", fmt.Sprintf("%d-%02d-01", year, month))
-			if err != nil {
-				return []*expenses.Expense{}, err
-			}
-
-			comulatedMap[month][entry.Category] = &expenses.Expense{Date: date, Category: entry.Category, Amount: 0.00}
-		}
-
-		if entry.Amount < 0 {
-			comulatedMap[month][entry.Category].Add(*entry)
+		if expense, exists := comulatedMap[month][entry.Category]; exists {
+			expense.Add(*entry)
 		}
 	}
 
-	return createComulatedSlice(comulatedMap), nil
+	return createComulatedSlice(comulatedMap, periods, categories), nil
 }
 
 func (r csvRepository) GetDays(year int, month int) ([]*expenses.Expense, error) {
@@ -119,9 +148,12 @@ func (r csvRepository) GetDays(year int, month int) ([]*expenses.Expense, error)
 		return []*expenses.Expense{}, err
 	}
 
+	periods := []int{}
 	comulatedMap := map[int]map[string]*expenses.Expense{}
 	for int(firstDay.Month()) == month {
+		periods = append(periods, firstDay.Day())
 		comulatedMap[firstDay.Day()] = map[string]*expenses.Expense{}
+
 		for _, category := range categories {
 			comulatedMap[firstDay.Day()][category] = &expenses.Expense{
 				Date:     firstDay,
@@ -133,20 +165,21 @@ func (r csvRepository) GetDays(year int, month int) ([]*expenses.Expense, error)
 		firstDay = firstDay.Add(time.Hour * 24)
 	}
 	for _, entry := range entries {
-		if _, exists := comulatedMap[entry.Date.Day()][entry.Category]; exists && entry.Amount < 0 {
-			comulatedMap[entry.Date.Day()][entry.Category].Add(*entry)
+		if expense, exists := comulatedMap[entry.Date.Day()][entry.Category]; exists {
+			expense.Add(*entry)
 		}
-
 	}
 
-	return createComulatedSlice(comulatedMap), nil
+	return createComulatedSlice(comulatedMap, periods, categories), nil
 }
 
-func createComulatedSlice(comulatedMap map[int]map[string]*expenses.Expense) []*expenses.Expense {
+func createComulatedSlice(comulatedMap map[int]map[string]*expenses.Expense, periods []int, categories []string) []*expenses.Expense {
 	comulated := []*expenses.Expense{}
-	for _, categoriesInYear := range comulatedMap {
-		for _, exp := range categoriesInYear {
-			comulated = append(comulated, exp)
+	for _, period := range periods {
+		for _, category := range categories {
+			if expense, exists := comulatedMap[period][category]; exists {
+				comulated = append(comulated, expense)
+			}
 		}
 	}
 

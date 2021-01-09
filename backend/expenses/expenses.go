@@ -5,7 +5,6 @@ import "time"
 type Expense struct {
 	Date     time.Time `json:"date"`
 	Amount   float64   `json:"amount"`
-	Currency string    `json:"currency"`
 	Category string    `json:"category"`
 }
 
