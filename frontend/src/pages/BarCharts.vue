@@ -74,20 +74,47 @@ export default {
         this.colorMap = new Map()
         let i = 0
 
-        this.chartData = {
-          datasets: response.data.expenses.map(expense => {
-            if (this.colorMap.get(expense.category) === undefined) {
-              this.colorMap.set(expense.category, this.colors[i])
-              i = (i + 1) % this.colors.length
-            }
+        let labels = []
+        let categoryMap = new Map()
+        response.data.expenses.forEach(expense => {
+          if (!labels.includes(expense.date)) {
+            labels.push(expense.date)
+          }
+          if (categoryMap.get(expense.category) === undefined) {
+            categoryMap.set(expense.category, [])
+          }
+          if (this.colorMap.get(expense.category) === undefined) {
+            this.colorMap.set(expense.category, this.colors[i])
+            i = (i + 1) % this.colors.length
+          }
 
-            return {
-              label: expense.category,
-              data: [expense.amount],
-              backgroundColor: this.colorMap.get(expense.category),
-              stack: expense.date
-            }
+          categoryMap.get(expense.category).push(expense.amount)
+        })
+
+        let datasets = []
+        categoryMap.forEach((value, key) => {
+          datasets.push({
+            label: key,
+            data: value,
+            backgroundColor: this.colorMap.get(key)
           })
+        })
+        this.chartData = {
+          labels: labels,
+          datasets: datasets
+          // datasets: response.data.expenses.map(expense => {
+          //   if (this.colorMap.get(expense.category) === undefined) {
+          //     this.colorMap.set(expense.category, this.colors[i])
+          //     i = (i + 1) % this.colors.length
+          //   }
+          //
+          //   return {
+          //     label: expense.category,
+          //     data: [expense.amount],
+          //     backgroundColor: this.colorMap.get(expense.category),
+          //     stack: expense.date
+          //   }
+          // })
         }
       })
     }
